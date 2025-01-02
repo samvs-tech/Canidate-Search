@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { searchGithub, searchGithubUser } from '../api/API';
-
-const CandidateSearch = () => {
-  import { useState, useEffect } from "react";
-import { searchGithub, searchGithubUser } from "../api/API";
-import Candidate from "../interfaces/Candidate.interface";
+import Candidate from '../interfaces/Candidate.interface';
 
 const CandidateSearch = () => {
   const [randUser, setRandUser] = useState<Candidate[]>([]);
@@ -13,26 +9,42 @@ const CandidateSearch = () => {
   const [noMoreCandidates, setNoMoreCandidates] = useState(false);
 
   useEffect(() => {
-    searchGithub().then((users) => {
-      setRandUser(users);
-      if (users.length > 0) {
-        searchGithubUser(users[0].login).then((newUser) => {
-          setCurrentUser(newUser);
-        });
-      }
-    });
+    searchGithub()
+      .then((users) => {
+        setRandUser(users);
+        return searchGithubUser(users[0].login);
+      })
+      .then((newUser) => {
+        setCurrentUser(newUser);
+      })
+      .catch((error) => {
+        console.error("Error fetching user details:", error);
+      });
   }, []);
 
-  const handleNext = () => {
+  useEffect(() => {
+    if (randUser.length === 0) {
+      setNoMoreCandidates(true);
+      return;
+    }
     const nextIndex = currentIndex + 1;
-    if (nextIndex < randUser.length) {
-      setCurrentIndex(nextIndex);
-      const nextUserName = randUser[nextIndex].login;
+    const nextUserName = randUser[nextIndex]?.login;
 
-      searchGithubUser(nextUserName).then((newUser) => {
-        setCurrentUser(newUser);
-        setNoMoreCandidates(false);
-      });
+    if (nextUserName) {
+      searchGithubUser(nextUserName)
+        .then((newUser) => {
+          setCurrentUser(newUser);
+          setNoMoreCandidates(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching user:", error);
+        });
+    }
+  }, [currentIndex, randUser]);
+
+  const handleNext = () => {
+    if (currentIndex + 1 < randUser.length) {
+      setCurrentIndex(currentIndex + 1);
     } else {
       setNoMoreCandidates(true);
     }
@@ -40,8 +52,10 @@ const CandidateSearch = () => {
 
   const handleSave = () => {
     const savedUsers = JSON.parse(localStorage.getItem("savedUsers") || "[]");
-    savedUsers.push(currentUser);
-    localStorage.setItem("savedUsers", JSON.stringify(savedUsers));
+    if (currentUser) {
+      savedUsers.push(currentUser);
+      localStorage.setItem("savedUsers", JSON.stringify(savedUsers));
+    }
     handleNext();
   };
 
@@ -74,21 +88,18 @@ const CandidateSearch = () => {
               Company:{" "}
               {currentUser.company ? currentUser.company : "not provided"}
             </p>
-            <p className="text-gray-700 text-base">
-              Bio: {currentUser.bio ? currentUser.bio : "not provided"}
-            </p>
-            <div className="flex justify-between">
+            <div className="flex justify-between mt-4">
               <button
                 className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
                 onClick={handleNext}
               >
-                -
+                Next
               </button>
               <button
                 className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
                 onClick={handleSave}
               >
-                +
+                Save
               </button>
             </div>
           </div>
@@ -96,11 +107,11 @@ const CandidateSearch = () => {
       ) : noMoreCandidates ? (
         <p className="text-center text-gray-600 mt-4">No more candidates</p>
       ) : (
-        "Loading"
+        <p className="text-center text-gray-600 mt-4">Loading</p>
       )}
     </div>
   );
 };
 
 export default CandidateSearch;
-export default CandidateSearch;
+
